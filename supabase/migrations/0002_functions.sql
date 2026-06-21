@@ -55,6 +55,10 @@ begin
           now() + make_interval(mins => in_ttl_minutes))
   returning id into new_request_id;
 
+  -- The data-modifying CTE always runs to completion even though the final
+  -- SELECT reads from `nearby`. The UNION guarantees at least one row carrying
+  -- the request_id, so a request in an area with no pharmacies still returns
+  -- its id (with null pharmacy fields) instead of an empty result.
   return query
   with nearby as (
     select * from find_nearby_pharmacies(in_lat, in_lng, in_radius_km)
@@ -64,7 +68,10 @@ begin
     returning pharmacy_id
   )
   select new_request_id, n.id, n.telegram_chat_id, n.distance_m
-  from nearby n;
+  from nearby n
+  union all
+  select new_request_id, null::uuid, null::text, null::double precision
+  where not exists (select 1 from nearby);
 end;
 $$;
 

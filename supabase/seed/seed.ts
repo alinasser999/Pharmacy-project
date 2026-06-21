@@ -34,7 +34,15 @@ function clean(v: string | undefined): string | null {
 
 async function main() {
   const raw = readFileSync(csvPath, "utf8");
-  const rows = parse(raw, { columns: true, skip_empty_lines: true, trim: true }) as Record<string, string>[];
+  // relax_* keeps a messy EDA export from aborting the whole seed over one
+  // ragged row (the playbook warns the catalog data will be messy).
+  const rows = parse(raw, {
+    columns: true,
+    skip_empty_lines: true,
+    trim: true,
+    relax_column_count: true,
+    relax_quotes: true,
+  }) as Record<string, string>[];
 
   const drugs = rows
     .map((r) => {

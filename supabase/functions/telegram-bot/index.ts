@@ -47,6 +47,8 @@ const T = {
     "يا سلام عليك 💚 وصّلنا ردّك إن الدوا موجود — المريض هييجي لك حالًا. ربنا يكرمك 🙏",
   thanksNoStock: "تمام، شكراً إنك ردّيت 🌿 ده بيساعدنا نوصّل المريض لحد تاني بسرعة.",
   thanksAlt: "تمام 👍 سجّلنا إن عندك بديل. ممكن المريض يتواصل معاك.",
+  alreadyRegistered:
+    "صيدليتك مسجّلة معانا بالفعل ✅ سيب التليجرام مفتوح، وأول ما يجيلك طلب هندّيك خبر 🌿",
   notRegistered:
     "لسه ما سجّلتش صيدليتك 🙏 ابعت /start الأول عشان نسجّلك.",
   unknown: "مش فاهم القصد 😅 لو محتاج تسجّل صيدليتك ابعت /start.",
@@ -121,15 +123,22 @@ async function handleMessage(msg: any) {
   }
 
   // Plain text after location -> treat as the pharmacy name, activate.
+  // Only while the pharmacy is still pending (is_active = false); otherwise a
+  // casual message like "شكرا" would silently rename an active pharmacy.
   if (text && !text.startsWith("/")) {
     const { data: existing } = await db
       .from("pharmacies")
-      .select("id")
+      .select("id, is_active")
       .eq("telegram_chat_id", chatId)
       .maybeSingle();
 
     if (!existing) {
       await tg("sendMessage", { chat_id: chatId, text: T.notRegistered });
+      return;
+    }
+
+    if (existing.is_active) {
+      await tg("sendMessage", { chat_id: chatId, text: T.alreadyRegistered });
       return;
     }
 
