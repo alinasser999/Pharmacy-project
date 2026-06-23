@@ -2,16 +2,28 @@ import { NextRequest, NextResponse } from "next/server";
 import { createAdminClient } from "@/lib/supabase/server";
 import { searchDrug } from "@/lib/search/searchDrug";
 import { sendPings, type PingTarget } from "@/lib/telegram";
+import { rateLimit, clientIp } from "@/lib/rate-limit";
+import { drugLabel } from "@/lib/format";
 import type { Drug } from "@/lib/types";
 
 export const runtime = "nodejs";
 
 const RADIUS_KM = Number(process.env.SEARCH_RADIUS_KM ?? 2);
 const TTL_MIN = Number(process.env.REQUEST_TTL_MINUTES ?? 20);
+const RATE_LIMIT = Number(process.env.REQUEST_RATE_LIMIT ?? 5);
 
 // POST /api/request — the core loop (playbook Phase 3).
 // Body: { query: string, lat: number, lng: number, contact: string }
 export async function POST(req: NextRequest) {
+  // Throttle per client to prevent ping spam / pharmacy ping-fatigue.
+  const limit = rateLimit(`req:${clientIp(req.headers)}`, RATE_LIMIT);
+  if (!limit.allowed) {
+    return NextResponse.json(
+      { error: "بعتّ طلبات كتير في وقت قصير 🙏 استنى شويّة وجرّب تاني." },
+      { status: 429, headers: { "Retry-After": String(limit.retryAfterSec) } },
+    );
+  }
+
   const body = await req.json().catch(() => null);
   if (!body || typeof body.query !== "string" || typeof body.lat !== "number" || typeof body.lng !== "number") {
     return NextResponse.json({ error: "بيانات ناقصة" }, { status: 400 });
@@ -27,7 +39,7 @@ export async function POST(req: NextRequest) {
 
   const matches = searchDrug(body.query, (catalog ?? []) as unknown as Drug[]);
   const top = matches[0]?.drug ?? null;
-  const drugLabel = top ? (top.brand_name_ar ? `${top.brand_name} / ${top.brand_name_ar}` : top.brand_name) : body.query;
+  const label = drugLabel(top, body.query);
 
   // 2) + 3) Create the request and fan out to nearby pharmacies in one call.
   const { data: fanout, error: rpcErr } = await supabase.rpc("create_request_and_fanout", {
@@ -54,7 +66,7 @@ export async function POST(req: NextRequest) {
   const targets: PingTarget[] = rows
     .filter((r) => r.telegram_chat_id)
     .map((r) => ({ pharmacy_id: r.pharmacy_id, telegram_chat_id: r.telegram_chat_id, distance_m: r.distance_m }));
-  await sendPings(requestId, drugLabel, targets);
+  await sendPings(requestId, label, targets);
 
   return NextResponse.json({
     request_id: requestId,

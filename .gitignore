@@ -34,3 +34,6 @@ supabase/.branches
 
 # test
 /coverage
+
+# typescript incremental build info
+*.tsbuildinfo

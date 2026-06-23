@@ -24,6 +24,14 @@ pushed past the MVP loop lives here so we don't lose the thread across sessions.
 - Responsiveness scoring to prioritize reliable pharmacies.
 - Delivery, payments, Flutter app, second district.
 
+## Delivery hardening (built, in-scope)
+- Request expiry is scheduled (Vercel cron `vercel.json` → `/api/cron/expire`,
+  or `0005_cron.sql` pg_cron) so fill-rate isn't skewed by unviewed requests.
+- Per-IP throttle on `/api/request` (in-memory sliding window — no Redis, per
+  the forbidden list) to prevent ping-spam / pharmacy ping-fatigue.
+- PWA: generated maskable icons + apple-touch-icon + minimal service worker.
+- Env-var guard, GitHub Actions CI (typecheck + test + build).
+
 ## Implementation notes
 - **Request expiry:** 20 minutes (Phase 3 spec) → status `expired`.
 - **Default search radius:** 2 km, configurable via `SEARCH_RADIUS_KM`.

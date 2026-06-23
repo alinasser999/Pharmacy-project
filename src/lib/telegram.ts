@@ -18,15 +18,30 @@ function pingText(drugLabel: string, distanceM: number): string {
   );
 }
 
+export type ResponseKind = "has_it" | "no_stock" | "has_alternative";
+
+// callback_data format shared with the bot Edge Function: "<resp>:<req>:<pharm>".
+export function buildCallbackData(resp: ResponseKind, requestId: string, pharmacyId: string): string {
+  return `${resp}:${requestId}:${pharmacyId}`;
+}
+
+export function parseCallbackData(
+  data: string,
+): { response: ResponseKind; requestId: string; pharmacyId: string } | null {
+  const [response, requestId, pharmacyId] = (data ?? "").split(":");
+  if (!response || !requestId || !pharmacyId) return null;
+  if (response !== "has_it" && response !== "no_stock" && response !== "has_alternative") return null;
+  return { response, requestId, pharmacyId };
+}
+
 function keyboard(requestId: string, pharmacyId: string) {
-  const cb = (resp: string) => `${resp}:${requestId}:${pharmacyId}`;
   return {
     inline_keyboard: [
       [
-        { text: "✅ عندي", callback_data: cb("has_it") },
-        { text: "❌ مش موجود", callback_data: cb("no_stock") },
+        { text: "✅ عندي", callback_data: buildCallbackData("has_it", requestId, pharmacyId) },
+        { text: "❌ مش موجود", callback_data: buildCallbackData("no_stock", requestId, pharmacyId) },
       ],
-      [{ text: "🔁 عندي بديل", callback_data: cb("has_alternative") }],
+      [{ text: "🔁 عندي بديل", callback_data: buildCallbackData("has_alternative", requestId, pharmacyId) }],
     ],
   };
 }

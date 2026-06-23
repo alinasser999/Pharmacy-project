@@ -52,15 +52,22 @@ npm test
    npm run seed                 # uses the sample CSV
    npm run seed path/to/eda.csv # or your own EDA export
    ```
-4. **Telegram bot** → deploy and set the webhook:
+4. **Telegram bot** → deploy and register the webhook (one command):
    ```bash
    supabase functions deploy telegram-bot --no-verify-jwt
-   # then call setWebhook -> .../functions/v1/telegram-bot?secret=<TELEGRAM_WEBHOOK_SECRET>
+   npm run set-webhook https://<project>.supabase.co/functions/v1/telegram-bot
+   # uses TELEGRAM_BOT_TOKEN + TELEGRAM_WEBHOOK_SECRET from your env
    ```
-5. **Run the PWA**:
+5. **Request expiry** → pick one:
+   - **Vercel:** `vercel.json` already schedules `/api/cron/expire` every minute
+     (set `CRON_SECRET`).
+   - **Supabase only:** run `supabase/migrations/0005_cron.sql` (needs pg_cron).
+6. **Run the PWA**:
    ```bash
    npm run dev
    ```
+
+PWA icons are generated and committed; regenerate with `npm run icons`.
 
 ### Per-phase tests (from the playbook)
 - **Phase 1:** `npm test` — three spellings → right match. ✅ runnable now.
@@ -71,6 +78,17 @@ npm test
 - **Phase 4:** run ~10 real requests, open `/dashboard`, read the fill rate.
 
 ---
+
+## Delivered hardening (beyond the four phases)
+- **PWA installable:** real maskable icons + `apple-touch-icon`, service worker
+  (offline app shell; API calls always go to network).
+- **Honest metrics:** request expiry runs on a schedule (Vercel cron or
+  pg_cron), not just lazily on page view.
+- **Anti ping-spam:** per-IP sliding-window throttle on `/api/request` (5 / 5min,
+  configurable) — guards the pharmacy ping-fatigue the playbook warns about.
+- **Clear failures:** missing env vars throw an actionable message.
+- **CI:** GitHub Actions runs typecheck + tests + build on every push.
+- **Tests:** 21 total — fuzzy-match gate, rate limiter, callback parsing, labels.
 
 ## Scope discipline
 Forbidden in the MVP (see `CLAUDE.md`): Kubernetes, microservices, queues,
