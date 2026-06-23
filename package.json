@@ -13,6 +13,7 @@
     "typecheck": "tsc --noEmit",
     "seed": "tsx supabase/seed/seed.ts",
     "icons": "node scripts/generate-icons.mjs",
+    "catalog": "node scripts/generate-catalog.mjs",
     "set-webhook": "tsx scripts/set-webhook.ts"
   },
   "dependencies": {

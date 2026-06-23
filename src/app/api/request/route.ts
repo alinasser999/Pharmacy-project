@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
   const targets: PingTarget[] = rows
     .filter((r) => r.telegram_chat_id)
     .map((r) => ({ pharmacy_id: r.pharmacy_id, telegram_chat_id: r.telegram_chat_id, distance_m: r.distance_m }));
-  await sendPings(requestId, label, targets);
+  if (targets.length) await sendPings(requestId, label, targets);
 
   return NextResponse.json({
     request_id: requestId,

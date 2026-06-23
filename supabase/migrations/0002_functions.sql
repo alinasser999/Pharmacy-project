@@ -10,11 +10,24 @@ returns table (
   active_ingredient text, strength text, form text, score real
 )
 language sql stable as $$
+  -- Score against each field (case-insensitively) and keep the best, so a
+  -- strong brand hit isn't diluted by the long search_text. word_similarity
+  -- lets a single typed word match within the combined text.
   select d.id, d.brand_name, d.brand_name_ar, d.generic_name,
          d.active_ingredient, d.strength, d.form,
-         similarity(d.search_text, q) as score
+         greatest(
+           similarity(lower(d.brand_name), lower(q)),
+           similarity(lower(coalesce(d.brand_name_ar, '')), lower(q)),
+           similarity(lower(coalesce(d.generic_name, '')), lower(q)),
+           similarity(lower(d.active_ingredient), lower(q)),
+           word_similarity(lower(q), lower(d.search_text))
+         ) as score
   from drugs d
-  where d.search_text % q
+  where lower(d.brand_name) % lower(q)
+     or lower(coalesce(d.brand_name_ar, '')) % lower(q)
+     or lower(coalesce(d.generic_name, '')) % lower(q)
+     or lower(d.active_ingredient) % lower(q)
+     or lower(q) <% lower(d.search_text)
   order by score desc
   limit max_results
 $$;
@@ -65,7 +78,7 @@ begin
   ), inserted as (
     insert into request_pharmacies (request_id, pharmacy_id)
     select new_request_id, n.id from nearby n
-    returning pharmacy_id
+    returning 1
   )
   select new_request_id, n.id, n.telegram_chat_id, n.distance_m
   from nearby n

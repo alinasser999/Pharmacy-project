@@ -24,16 +24,25 @@ The patient PWA and pharmacist Telegram messages are in **warm Egyptian Arabic**
 
 ---
 
-## Phase 1 test (runs offline, no DB needed)
-
-The playbook's gate — three spellings of one drug all resolve to Panadol:
+## Tests
 
 ```bash
 npm install
-npm test
+npm test          # 69 tests, no DB needed
 ```
 
-`بانادول`, `Panadol`, and `panadl` all return **Panadol** (`tests/search.test.ts`).
+- **Phase 1 gate:** `بانادول`, `Panadol`, `panadl` all return **Panadol**.
+- **Catalog quality:** the matcher is run over the full 132-drug Egypt catalog
+  for English brands, Arabic brands, misspellings, and generics
+  (`tests/catalog.test.ts`).
+- **API routes:** request / status / metrics / login / cron handlers tested with
+  a mocked Supabase client (`tests/api.test.ts`).
+- **Helpers:** rate limiter, Telegram callback codec, drug labels.
+
+### SQL layer (needs Postgres + PostGIS)
+The RPCs and views are verified end-to-end by `supabase/tests/functions_test.sql`
+(fuzzy search, geo radius, fan-out, match/no-stock, expiry, dashboard views).
+See the header of that file for the run command.
 
 ---
 
@@ -49,9 +58,11 @@ npm test
 2. **Env** → copy `.env.example` to `.env.local` and fill in the values.
 3. **Seed the catalog**:
    ```bash
-   npm run seed                 # uses the sample CSV
-   npm run seed path/to/eda.csv # or your own EDA export
+   npm run seed supabase/seed/drugs.egypt.csv  # 132 common Egyptian-market drugs
+   npm run seed                                # or the tiny sample CSV
+   npm run seed path/to/eda.csv                # or your own EDA export
    ```
+   Regenerate/extend the Egypt catalog with `npm run catalog`.
 4. **Telegram bot** → deploy and register the webhook (one command):
    ```bash
    supabase functions deploy telegram-bot --no-verify-jwt
